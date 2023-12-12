@@ -1,7 +1,7 @@
 #include <stdbool.h> // TYP BOOL
-#include <stdio.h> // INPUT & OUTPUT
-#include <stdlib.h> // MALLOC
-#include <time.h> // RANDOM
+#include <stdio.h>   // INPUT & OUTPUT
+#include <stdlib.h>  // MALLOC
+#include <time.h>    // RANDOM
 
 // KOLORY WYJSCIA I WEJSCIA Z LABIRYNTU
 #define COLOR_RED "\x1b[31m"
@@ -10,6 +10,9 @@
 
 // MAKSYMALNA WIELKOSC TABLICY LABIRYNTU
 #define MAX_SIZE 100
+
+// MAKSYMALNA WAGA SCIEZKI
+#define MAX_DIST 1000.01
 
 typedef struct cell cell; // PRE-DEKLARACJA STRUKTURY
 
@@ -31,13 +34,13 @@ struct cell {
 struct Node {
     int data;
     double weight;
-    struct Node* next;
+    struct Node *next;
 };
 
 // STRUKTURA GRAFU
 struct Graph {
     int vertices;
-    struct Node** adjacency_list;
+    struct Node **adjacency_list;
 };
 
 // NUMEROWANIE KOMOREK LABIRYNTU OD 1
@@ -57,11 +60,14 @@ void unvisitAllCells(cell *cells, int cellCount) {
 // LOSOWE PRZYPISANIE WAG KOMORKOM LABIRYNTU
 void assignWeightsToCells(cell *cells, int cellCount) {
     srand(time(NULL));
-    
+
     for (int i = 0; i < cellCount; i++) {
-        int randomInt = rand()%1001;
+        int randomInt = rand() % 1001;
         double randomDouble = (double)randomInt / 100.0;
         cells[i].weight = randomDouble;
+
+        if (randomDouble == 0)
+            i--;
     }
 }
 
@@ -90,7 +96,7 @@ void chooseGates(cell *cells, int cellWidth, int cellCount) {
     cells[cellCount - 1 - e].content = '@';
 }
 
-// GENERACJA SUROWEGO LABIRYNTU (SCIANY I KOMORKI)
+// GENERACJA SUROWEGO LABIRYNTU (SCIANY WSZEDZIE)
 void mazeGen(cell *cells, int mazeSize, char maze[MAX_SIZE][MAX_SIZE]) {
     int cellsIteration = 0;
     for (int i = 0; i < mazeSize; i++) {
@@ -194,7 +200,7 @@ bool hasUnvisitedNeighbour(cell cell, int cellCount) {
     for (int i = 0; i < 4; i++) {
         if (cell.neighbours[i] != NULL) {
             if (cell.neighbours[i]->isVisited == 0) {
-                //printf("tak");
+                // printf("tak");
                 return 1;
             }
         }
@@ -203,25 +209,25 @@ bool hasUnvisitedNeighbour(cell cell, int cellCount) {
 }
 
 // ZNISZCZENIE SCIANY MIEDZY DWOMA KOMORKAMI
-void breakWall(cell current, cell adjacent, char maze[MAX_SIZE][MAX_SIZE]){
-    if(adjacent.x < current.x){
-        maze[current.x-1][current.y] = ' ';
+void breakWall(cell current, cell adjacent, char maze[MAX_SIZE][MAX_SIZE]) {
+    if (adjacent.x < current.x) {
+        maze[current.x - 1][current.y] = ' ';
     }
-    if(adjacent.x > current.x){
-        maze[current.x+1][current.y] = ' ';
+    if (adjacent.x > current.x) {
+        maze[current.x + 1][current.y] = ' ';
     }
-    if(adjacent.y < current.y){
-        maze[current.x][current.y-1] = ' ';
+    if (adjacent.y < current.y) {
+        maze[current.x][current.y - 1] = ' ';
     }
-    if(adjacent.y > current.y){
-        maze[current.x][current.y+1] = ' ';
+    if (adjacent.y > current.y) {
+        maze[current.x][current.y + 1] = ' ';
     }
 }
 
 // ZWROCENIE KOMORKI O PODANYCH KOORDYNATACH
-cell returnCellByCoordinates(cell *cells, int x, int y, int cellCount){
-    for(int i=0; i<cellCount; i++){
-        if(cells[i].x == x && cells[i].y == y){
+cell returnCellByCoordinates(cell *cells, int x, int y, int cellCount) {
+    for (int i = 0; i < cellCount; i++) {
+        if (cells[i].x == x && cells[i].y == y) {
             return cells[i];
         }
     }
@@ -229,18 +235,18 @@ cell returnCellByCoordinates(cell *cells, int x, int y, int cellCount){
 }
 
 // USTAWIENIE KOMORKI O PODANYCH KOORDYNATACH JAKO "ODWIEDZONA"
-void setCellAsVisitedByCoordinates(cell *cells, int x, int y, int cellCount){
-    for(int i=0; i<cellCount; i++){
-        if(cells[i].x == x && cells[i].y == y){
+void setCellAsVisitedByCoordinates(cell *cells, int x, int y, int cellCount) {
+    for (int i = 0; i < cellCount; i++) {
+        if (cells[i].x == x && cells[i].y == y) {
             cells[i].isVisited = 1;
         }
     }
 }
 
 // ZWROCENIE KOMORKI O PODANYM NUMERZE
-cell returnCellById(cell *cells, int id, int cellCount){
-    for(int i=0; i<cellCount; i++){
-        if(cells[i].id == id){
+cell returnCellById(cell *cells, int id, int cellCount) {
+    for (int i = 0; i < cellCount; i++) {
+        if (cells[i].id == id) {
             return cells[i];
         }
     }
@@ -248,49 +254,51 @@ cell returnCellById(cell *cells, int id, int cellCount){
 }
 
 // STWORZENIE GRAFU
-struct Graph* createGraph(int vertices) {
-    struct Graph* graph = (struct Graph*)malloc(sizeof(struct Graph));
+struct Graph *createGraph(int vertices) {
+    struct Graph *graph = (struct Graph *)malloc(sizeof(struct Graph));
     graph->vertices = vertices;
-    graph->adjacency_list = (struct Node**)malloc(vertices * sizeof(struct Node*));
+    graph->adjacency_list =
+            (struct Node **)malloc(vertices * sizeof(struct Node *));
 
-    for (int i = 0; i < vertices; ++i){
+    for (int i = 0; i < vertices; ++i) {
         graph->adjacency_list[i] = NULL;
     }
     return graph;
 }
 
 // DODAWANIE KRAWEDZI GRAFU
-void addEdge(struct Graph* graph, int src, int dest, double weight) {
+void addEdge(struct Graph *graph, int src, int dest, double weight) {
     // Add an edge from src to dest
-    struct Node* newNode = (struct Node*)malloc(sizeof(struct Node));
+    struct Node *newNode = (struct Node *)malloc(sizeof(struct Node));
     newNode->data = dest;
     newNode->weight = weight;
-    newNode->next = graph->adjacency_list[src-1];
-    graph->adjacency_list[src-1] = newNode;
+    newNode->next = graph->adjacency_list[src - 1];
+    graph->adjacency_list[src - 1] = newNode;
 }
 
 // WYSWIETLENIE LISTY SASIEDZTWA GRAFU
-void printGraph(struct Graph* graph, cell *cells, int cellCount) {
-    printf("GRAF (LISTA SASIEDZTWA):\n");
+void printGraph(struct Graph *graph, cell *cells, int cellCount) {
+    printf("LABIRYNT W FORMIE GRAFU (LISTA SASIEDZTWA):\n\n");
     for (int i = 0; i < graph->vertices; ++i) {
-        printf("[%d] ", i+1);
-        
-        cell tmp = returnCellById(cells, i+1, cellCount);
+        printf("[%d] ", i + 1);
 
-        if(tmp.isStart){
-            printf("- start (%.2f)", tmp.weight);
+        cell tmp = returnCellById(cells, i + 1, cellCount);
+
+        if (tmp.isStart) {
+            //printf("- start (%.2f)", tmp.weight);
         }
-        if(tmp.isEnd){
-            printf("- koniec");
+        if (tmp.isEnd) {
+            //printf("- koniec");
         }
         printf(":\n");
 
-        struct Node* temp = graph->adjacency_list[i];
+        struct Node *temp = graph->adjacency_list[i];
         while (temp) {
-            printf("  -> [%d] (%.2f) ", temp->data, temp->weight);
+            //printf("  -> [%d] (%.2f) ", temp->data, temp->weight);
+            printf(" -> [%d] ", temp->data);
 
-            if(returnCellById(cells, temp->data, cellCount).isEnd){
-                printf("(koniec)");
+            if (returnCellById(cells, temp->data, cellCount).isEnd) {
+                //printf("(koniec)");
             }
             printf("\n");
             temp = temp->next;
@@ -300,11 +308,11 @@ void printGraph(struct Graph* graph, cell *cells, int cellCount) {
 }
 
 // ZWOLNIENIE PAMIECI ZAALOKOWANEJ DLA GRAFU
-void freeGraph(struct Graph* graph) {
+void freeGraph(struct Graph *graph) {
     for (int i = 0; i < graph->vertices; ++i) {
-        struct Node* current = graph->adjacency_list[i];
+        struct Node *current = graph->adjacency_list[i];
         while (current) {
-            struct Node* next = current->next;
+            struct Node *next = current->next;
             free(current);
             current = next;
         }
@@ -314,33 +322,33 @@ void freeGraph(struct Graph* graph) {
 }
 
 // USTAWIENIE KOMORKI O PODANYM NUMERZE JAKO "ODWIEDZONEJ"
-void setCellAsVisitedById(cell *cells, int id, int cellCount){
-    for(int i=0; i<cellCount; i++){
-        if(cells[i].id == id){
+void setCellAsVisitedById(cell *cells, int id, int cellCount) {
+    for (int i = 0; i < cellCount; i++) {
+        if (cells[i].id == id) {
             cells[i].isVisited = 1;
         }
     }
 }
 
 // SPRAWDZENIE CZY POMIEDZY KOMORKAMI JEST SCIANA
-bool isWallBetween(cell current, cell adjacent, char maze[MAX_SIZE][MAX_SIZE]){
-    if(adjacent.x < current.x){
-        if(maze[current.x-1][current.y] == ' '){
+bool isWallBetween(cell current, cell adjacent, char maze[MAX_SIZE][MAX_SIZE]) {
+    if (adjacent.x < current.x) {
+        if (maze[current.x - 1][current.y] == ' ') {
             return 0;
         }
     }
-    if(adjacent.x > current.x){
-        if(maze[current.x+1][current.y] == ' '){
+    if (adjacent.x > current.x) {
+        if (maze[current.x + 1][current.y] == ' ') {
             return 0;
         }
     }
-    if(adjacent.y < current.y){
-        if(maze[current.x][current.y-1] == ' '){
+    if (adjacent.y < current.y) {
+        if (maze[current.x][current.y - 1] == ' ') {
             return 0;
         }
     }
-    if(adjacent.y > current.y){
-        if(maze[current.x][current.y+1] == ' '){
+    if (adjacent.y > current.y) {
+        if (maze[current.x][current.y + 1] == ' ') {
             return 0;
         }
     }
@@ -349,118 +357,231 @@ bool isWallBetween(cell current, cell adjacent, char maze[MAX_SIZE][MAX_SIZE]){
 }
 
 // LOSOWE OTWIERANIE SCIEZEK W LABIRYNCIE + GENEROWANIE GRAFU LABIRYNTU
-void randomPathOpenAndGraphGen(cell *cells, char maze[MAX_SIZE][MAX_SIZE], int mazeSize, int cellCount, int cellWidth, struct Graph* graph){
+void randomPathOpenAndGraphGen(cell *cells, char maze[MAX_SIZE][MAX_SIZE], int mazeSize, int cellCount, int cellWidth, struct Graph *graph) {
     srand(time(NULL));
-    int randomCellIndex = rand()%cellCount;
-    
-    for(int i=0; i<cellCount; i++){
-        if(cells[i].isStart){
-            randomCellIndex = cells[i].id-1;
+    int randomCellIndex = rand() % cellCount;
+
+    for (int i = 0; i < cellCount; i++) {
+        if (cells[i].isStart) {
+            randomCellIndex = cells[i].id - 1;
         }
     }
-    
+
     cell current = cells[randomCellIndex];
-    
-    while(!allCellsVisited(cells, cellCount)){
-        
+
+    while (!allCellsVisited(cells, cellCount)) {
         setCellAsVisitedByCoordinates(cells, current.x, current.y, cellCount);
-        
-        int direction = rand()%4;
+
+        int direction = rand() % 4;
         int move = 0;
         cell next = current;
 
-        switch(direction){
-            // GORA
-            case 0:
-                move = current.x - 2;
-                if(move > 0){
-                    next = returnCellByCoordinates(cells, move, current.y, cellCount);
-                    if(!next.isVisited){
-                        breakWall(current, next, maze);
-                        addEdge(graph, current.id, next.id, next.weight);
-                    }
-                    current = next;
+        switch (direction) {
+        // GORA
+        case 0:
+            move = current.x - 2;
+            if (move > 0) {
+                next = returnCellByCoordinates(cells, move, current.y, cellCount);
+                if (!next.isVisited) {
+                    breakWall(current, next, maze);
+                    addEdge(graph, current.id, next.id, next.weight);
                 }
-                break;
-            // PRAWO
-            case 1:
-                move = current.y + 2;
-                if(move<mazeSize-1){
-                    next = returnCellByCoordinates(cells, current.x, move, cellCount);
-                    if(!next.isVisited){
-                        breakWall(current, next, maze);
-                        addEdge(graph, current.id, next.id, next.weight);
-                    }
-                    current = next;
+                current = next;
+            }
+            break;
+        // PRAWO
+        case 1:
+            move = current.y + 2;
+            if (move < mazeSize - 1) {
+                next = returnCellByCoordinates(cells, current.x, move, cellCount);
+                if (!next.isVisited) {
+                    breakWall(current, next, maze);
+                    addEdge(graph, current.id, next.id, next.weight);
                 }
-                break;
-            // DOL
-            case 2:
-                move = current.x + 2;
-                if(move<mazeSize-1){
-                    next = returnCellByCoordinates(cells, move, current.y, cellCount);
-                    if(!next.isVisited){
-                        breakWall(current, next, maze);
-                        addEdge(graph, current.id, next.id, next.weight);
-                    }
-                    current = next;
+                current = next;
+            }
+            break;
+        // DOL
+        case 2:
+            move = current.x + 2;
+            if (move < mazeSize - 1) {
+                next = returnCellByCoordinates(cells, move, current.y, cellCount);
+                if (!next.isVisited) {
+                    breakWall(current, next, maze);
+                    addEdge(graph, current.id, next.id, next.weight);
                 }
-                break;
-            // LEWO
-            case 3:
-                move = current.y - 2;
-                if(move>0){
-                    next = returnCellByCoordinates(cells, current.x, move, cellCount);
-                    if(!next.isVisited){
-                        breakWall(current, next, maze);
-                        addEdge(graph, current.id, next.id, next.weight);
-                    }
-                    current = next;
+                current = next;
+            }
+            break;
+        // LEWO
+        case 3:
+            move = current.y - 2;
+            if (move > 0) {
+                next = returnCellByCoordinates(cells, current.x, move, cellCount);
+                if (!next.isVisited) {
+                    breakWall(current, next, maze);
+                    addEdge(graph, current.id, next.id, next.weight);
                 }
-                break;
-            default:
-                break;
+                current = next;
+            }
+            break;
+        default:
+            break;
         }
     }
     return;
 }
 
+// ALGORYTM DIJKSTRY (NAJKROTSZA SCIEZKA MIEDZY DWOMA WEZLAMI SKIEROWANEGO GRAFU WAZONEGO)
+void dijkstra(struct Graph *graph, int start, int end, int *path, double *distance) {
+    
+    // WSTEPNE USTAWIENIE WEKTOROW: ODLEGLOSCI I SCIEZKI (ZGODNIE Z ZALOZENIAMI ALGORYTMU)
+    for (int i = 0; i < graph->vertices; ++i) {
+        distance[i] = MAX_DIST;
+        path[i] = -1;
+    }
+
+    distance[start - 1] = 0;
+
+    // WEKTOR ODWIEDZONYCH KOMOREK LABIRYNTU
+    bool *visited = (bool *)malloc(graph->vertices * sizeof(bool));
+    for (int i = 0; i < graph->vertices; ++i) {
+        visited[i] = false;
+    }
+
+    // ZNAJDOWANIE NAJKROTSZEJ SCIEZKI
+    for (int count = 0; count < graph->vertices - 1; ++count) {
+        int u = -1;
+        double minDistance = MAX_DIST;
+
+        // ZNAJDOWANIE WEZLA O NAJMNIEJSZEJ ODLEGLOSCI MINIMALNEJ
+        for (int v = 0; v < graph->vertices; ++v) {
+            if (!visited[v] && distance[v] < minDistance) {
+                u = v;
+                minDistance = distance[v];
+            }
+        }
+        visited[u] = true;
+
+        struct Node *temp = graph->adjacency_list[u];
+        while (temp) {
+            int v = temp->data - 1;
+            if (!visited[v] && distance[u] + temp->weight < distance[v]) {
+                distance[v] = distance[u] + temp->weight;
+                path[v] = u;
+            }
+            temp = temp->next;
+        }
+    }
+    free(visited);
+}
+
+// WYSWIETLENIE NAJKROTSZEJ SCIEZKI PRZEJSCIA LABIRYNTU ORAZ WAGI CALKOWITEJ TEJ SCIEZKI
+void shortestPath(int *path, double *distance, int start, int end, cell *cells, int cellCount) {
+    printf("NAJKROTSZA SCIEZKA OD POCZATKU [%d] DO KONCA [%d] LABIRYNTU:\n\n", start, end);
+    int current = end - 1;
+    int reverse[cellCount];
+    int i = 0;
+    while (current != -1) {
+        reverse[i] = current + 1;
+        i++;
+        current = path[current];
+    }
+    int j = i;
+    i = 0;
+    // ODWROCENIE KOLEJNOSCI WYSWIETLANIA KOLEJNYCH KOMOREK SCIEZKI
+    while (i != j) {
+        printf("--(%.2f)--> [%d] ", returnCellById(cells, reverse[j-1], cellCount).weight, reverse[j - 1]);
+        j--;
+    }
+    printf("\n\n");
+    
+    // SUMA WAG WSZYSTKICH KOMOREK SCIEZKI (KRAWEDZI) + WAGA KOMORKI STARTOWEJ
+    double totalWeight = distance[end - 1] + returnCellById(cells, start, cellCount).weight;
+    printf("CALKOWITA WAGA SCIEZKI: %.2f\n\n", totalWeight);
+}
+
+// USTAW ZMIENNE START I END NA ID KOMOREK POCZATKU I KONCA LABIRYNTU
+void getIdOfStartAndEnd(cell *cells, int *start, int *end, int cellCount){
+    for (int i = 0; i < cellCount; i++) {
+        if (cells[i].isStart) {
+            *start = cells[i].id;
+        }
+        if (cells[i].isEnd) {
+            *end = cells[i].id;
+        }
+    }
+}
+
+// SPRAWDZENIE ILE MOZLIWYCH SCIEZEK PRZEJSCIA LABIRYNTU ISTNIEJE
+int countPaths(struct Graph* graph, int cellCount, int endID) {
+    int count = 0;
+    for (int i = 0; i < cellCount; i++) {
+        struct Node* current = graph->adjacency_list[i];
+
+        while (current != NULL) {
+            if (current->data == endID) {
+                count++;
+            }
+            current = current->next;
+        }
+    }
+    return count;
+}
+
 int main() {
-    int cellWidth = 0; // ROZMIAR LABIRYNTU (LICZBA KOMOREK W WIERSZU)
-    printf("Podaj wymiar labiryntu: ");
+    int cellWidth = 0; // ROZMIAR LABIRYNTU (LICZBA KOMOREK W WIERSZU/SZEROKOSC LABIRYNTU)
+    printf("PODAJ WYMIAR LABIRYNTU (2 - 10): ");
     scanf("%d", &cellWidth);
     printf("\n");
 
     while (cellWidth < 2 || cellWidth > 10) {
-        printf("Wymiar od 2 do 10! Jeszcze raz: ");
+        printf("WYMIAR OD 2 DO 10! SPROBUJ JESZCZE RAZ: ");
         scanf("%d", &cellWidth);
     }
-    printf("\n");
 
     int cellCount = cellWidth * cellWidth; // LICZBA KOMOREK LABIRYNTU
     int mazeSize = cellWidth * 2 + 1;      // ROZMIAR TABLICY ZNAKOW LABIRYNTU
 
     cell *cells = malloc(cellCount * sizeof(cell)); // WEKTOR KOMOREK
-    struct Graph* graph = createGraph(cellCount); // UTWORZ GRAF
+    struct Graph *graph = createGraph(cellCount);   // UTWORZ GRAF
 
-    idCells(cells, cellCount); // PONUMERUJ KOMORKI
-    unvisitAllCells(cells, cellCount); // USTAW KOMORKI NA "NIEODWIEDZONE"
+    idCells(cells, cellCount);              // PONUMERUJ KOMORKI
+    unvisitAllCells(cells, cellCount);      // USTAW KOMORKI NA "NIEODWIEDZONE"
     assignWeightsToCells(cells, cellCount); // PRZYPISZ LOSOWE WAGI KOMORKOM
     fillCells(cells, cellCount);
 
     chooseGates(cells, cellWidth, cellCount); // LOSOWO WYBIERZ WEJSCIE I WYJSCIE Z LABIRYNTU
 
-    char maze[MAX_SIZE][MAX_SIZE]; // TABLICA ZNAKOW LABIRYNTU
+    char maze[MAX_SIZE][MAX_SIZE];  // TABLICA ZNAKOW LABIRYNTU
     mazeGen(cells, mazeSize, maze); // GENEROWANIE "SUROWEGO" LABIRYNTU
 
     openGates(cells, maze, cellCount); // OTWORZ KOMORKI WEJSCIA I WYJSCIA
 
-    randomPathOpenAndGraphGen(cells, maze, mazeSize, cellCount, cellWidth, graph); // OTWIERANIE LOSOWO SCIEZEK W LABIRYNCIE + LISTA SASIEDZTWA
+    // OTWIERANIE LOSOWO SCIEZEK W LABIRYNCIE + LISTA SASIEDZTWA
+    randomPathOpenAndGraphGen(cells, maze, mazeSize, cellCount, cellWidth,graph);
 
-    mazePrint(maze, mazeSize); // WYSWIETL LABIRYNT
+    printf("LABIRYNT W FORMIE GRAFICZNEJ:\n\n");
+    mazePrint(maze, mazeSize); // WYSWIETL LABIRYNT GRAFICZNIE
 
-    printGraph(graph, cells, cellCount); // WYSTWIETL GRAF
+    int start, end;
+    getIdOfStartAndEnd(cells, &start, &end, cellCount); // USTAW ID KOMORKI POCZATKU I KONCA LABIRYNTU
 
+    printf("KOMORKA WEJSCIOWA - [%d]\n", start); // POCZATEK LABIRYNTU
+    printf("Komorka WYJSCIOWA - [%d]\n\n", end); // KONIEC LABIRYNTU
+
+    printGraph(graph, cells, cellCount); // WYSTWIETL GRAF W POSTACI LISTY SASIEDZTWA
+
+    int *path = (int *)malloc(cellCount * sizeof(int)); // WEKTOR WEZLOW SCIEZKI
+    double *distance = (double *)malloc(cellCount * sizeof(double)); // WEKTOR ODLEGLOSCI KOMOREK OD KOMORKI STARTOWEJ
+
+    printf("LICZBA MOZLIWYCH SCIEZEK PRZEJSCIA LABIRYNTU: %d\n\n",countPaths(graph, cellCount, end)); 
+
+    dijkstra(graph, start, end, path, distance); // ALGORYTM DIJKSTRY (ZNAJDOWANIE NAJKROTSZEJ SCIEZKI MIEDZY WEZLAMI GRAFU)
+    shortestPath(path, distance, start, end, cells, cellCount); // WYSWIETLANIE NAJKROTSZEJ SCIEZKI I JEJ WAGI
+
+    free(path); // ZWOLNIJ PAMIEC ZAALOKOWANA NA WEKTOR WEZLOW SCIEZKI
+    free(distance); // ZWOLNIJ PAMIEC ZAALOKOWANA DLA WEKTORA ODLEGLOSCI KOMOREK OD KOMORKI STARTOWEJ
     freeGraph(graph); // ZWOLNIJ PAMIEC ZAALOKOWANA DLA GRAFU
     free(cells); // ZWOLNIJ PAMIEC ZAALOKOWANA DLA WEKTORA KOMOREK LABIRYNTU
 
